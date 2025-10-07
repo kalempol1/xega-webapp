@@ -8,12 +8,12 @@
   <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React 18 + ReactDOM (UMD) + Babel (JSX için) -->
+  <!-- React + ReactDOM + Babel -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Framer Motion (UMD) -->
+  <!-- Framer Motion -->
   <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
 
   <style>
@@ -24,35 +24,27 @@
       --deep-red-3: #0d0000;
     }
     html, body { height: 100%; }
-    /* Sadece kırmızı/siyah palet, metin kontrastı için açık gri kullanıyoruz */
   </style>
 </head>
 
 <body class="h-full">
   <div id="root" class="h-full"></div>
 
-  <!-- App -->
   <script type="text/babel">
-    const { useState, useMemo, useEffect } = React;
+    const { useState, useEffect, useMemo } = React;
     const { motion, AnimatePresence } = window.framerMotion;
 
-    // ===== THEME HELPERS
     const BG_GRADIENT = "bg-gradient-to-b from-[var(--deep-red-1)] via-[var(--deep-red-2)] to-[var(--deep-red-3)]";
     const CARD_BG = "bg-[#170000]/70 border border-[#330000]";
     const R_TEXT = "text-[#ff2a2a]";
-
-    // ===== GAME CONSTS (mock)
     const ENERGY_MAX = 100;
     const MULTI_PER_LEVEL = 0.5;
     const CRIT_BASE = 0.12;
     const CRIT_PER_LEVEL = 0.02;
-    const CRIT_CAP = 0.40;
+    const CRIT_CAP = 0.4;
 
-    // Utils
-    const clamp = (n,a,b)=> Math.min(b, Math.max(a,n));
-    const format = (n)=> new Intl.NumberFormat().format(n);
-
-    // Particles
+    const clamp = (n,a,b)=>Math.min(b,Math.max(a,n));
+    const format = n => new Intl.NumberFormat().format(n);
     function mkBurst(n=16){
       return Array.from({length:n}).map((_,i)=>({
         id: Math.random().toString(36).slice(2,9)+i,
@@ -65,112 +57,115 @@
     }
 
     function App(){
-      const [displayName, setDisplayName] = useState("Player");
-      const [nameLocked, setNameLocked] = useState(false);
-      const [wallet, setWallet] = useState("");
+      const [xega,setXega]=useState(0);
+      const [energy,setEnergy]=useState(ENERGY_MAX);
+      const [multiplier_level,setMult]=useState(0);
+      const [crit_level,setCrit]=useState(0);
+      const [displayName,setDisplayName]=useState("Player");
+      const [nameLocked,setNameLocked]=useState(false);
+      const [wallet,setWallet]=useState("");
+      const [tab,setTab]=useState("shop");
+      const [burst,setBurst]=useState([]);
+      const [pulse,setPulse]=useState([]);
 
-      const [xega, setXega] = useState(0);
-      const [energy, setEnergy] = useState(ENERGY_MAX);
-      const [multiplier_level, setMult] = useState(0);
-      const [crit_level, setCrit] = useState(0);
-
-      const [tab, setTab] = useState("shop"); // shop | profile | leader | ref
-      const [burst, setBurst] = useState([]);
-
-      // Tap handler (logo)
-      function onTap(){
-        if (energy <= 0) return;
-        const mult = 1 + MULTI_PER_LEVEL * multiplier_level;
-        const critChance = Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * crit_level);
-        const isCrit = Math.random() < critChance;
-        const gain = Math.max(1, Math.round(1 * mult * (isCrit?2:1)));
-        setXega(v => v + gain);
-        setEnergy(e => clamp(e-1, 0, ENERGY_MAX));
-        setBurst(mkBurst(18));
-        try { window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); } catch {}
+      function triggerPulse(){
+        const id=Math.random().toString(36).slice(2,9);
+        setPulse([{id}]);
+        setTimeout(()=>setPulse([]),1200);
       }
 
-      // Slow regen for UX
+      function onTap(){
+        if(energy<=0)return;
+        const multi=1+MULTI_PER_LEVEL*multiplier_level;
+        const critChance=Math.min(CRIT_CAP,CRIT_BASE+CRIT_PER_LEVEL*crit_level);
+        const isCrit=Math.random()<critChance;
+        const gain=Math.max(1,Math.round(1*multi*(isCrit?2:1)));
+        setXega(v=>v+gain);
+        setEnergy(e=>clamp(e-1,0,ENERGY_MAX));
+        setBurst(mkBurst(18));
+        triggerPulse();
+      }
+
       useEffect(()=>{
-        const id = setInterval(()=> {
-          setEnergy(e => e < ENERGY_MAX ? e+1 : e);
-        }, 1500);
-        return ()=>clearInterval(id);
+        const id=setInterval(()=>setEnergy(e=>e<ENERGY_MAX?e+1:e),1500);
+        return()=>clearInterval(id);
       },[]);
 
-      const multX = useMemo(()=> (1 + MULTI_PER_LEVEL * multiplier_level).toFixed(1), [multiplier_level]);
-      const critPct = useMemo(()=> Math.round(Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * crit_level)*100), [crit_level]);
+      const multX=useMemo(()=> (1+MULTI_PER_LEVEL*multiplier_level).toFixed(1),[multiplier_level]);
+      const critPct=useMemo(()=>Math.round(Math.min(CRIT_CAP,CRIT_BASE+CRIT_PER_LEVEL*crit_level)*100),[crit_level]);
 
       return (
         <div className={`min-h-screen ${BG_GRADIENT} text-zinc-200 flex flex-col`}>
-          {/* TOP HUD */}
+          {/* Top HUD */}
           <header className="w-full px-4 pt-4">
-            <div className="max-w-5xl mx-auto">
-              <div className="flex items-center justify-between gap-3">
-                {/* Left micro cards */}
-                <div className="flex items-center gap-3 text-xs">
-                  <div className={`px-2 py-1 rounded-md ${CARD_BG} flex items-center gap-2`}>
-                    <span className="text-zinc-400">Crit</span>
-                    <span className="font-semibold text-zinc-100">{critPct}%</span>
-                  </div>
-                  <div className={`px-2 py-1 rounded-md ${CARD_BG} flex items-center gap-2`}>
-                    <span className="text-zinc-400">Mult</span>
-                    <span className="font-semibold text-zinc-100">x{multX}</span>
-                  </div>
+            <div className="max-w-5xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3 text-xs">
+                <div className={`px-2 py-1 rounded-md ${CARD_BG}`}>
+                  <span className="text-zinc-400">Crit</span> <span className="font-semibold">{critPct}%</span>
                 </div>
-                {/* Right energy bar */}
-                <div className={`px-2 py-2 rounded-xl ${CARD_BG} w-56`}>
-                  <div className="flex items-center justify-between text-[10px] text-zinc-300 mb-1">
-                    <span>Energy</span>
-                    <span className="text-zinc-400">{energy}/{ENERGY_MAX}</span>
-                  </div>
-                  <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
-                    <div className="h-full" style={{background: 'var(--xega-red)', width: `${(energy/ENERGY_MAX)*100}%`}}></div>
-                  </div>
+                <div className={`px-2 py-1 rounded-md ${CARD_BG}`}>
+                  <span className="text-zinc-400">Mult</span> <span className="font-semibold">x{multX}</span>
+                </div>
+              </div>
+              <div className={`px-2 py-2 rounded-xl ${CARD_BG} w-56`}>
+                <div className="flex items-center justify-between text-[10px] text-zinc-300 mb-1">
+                  <span>Energy</span>
+                  <span className="text-zinc-400">{energy}/{ENERGY_MAX}</span>
+                </div>
+                <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+                  <div className="h-full" style={{background:'var(--xega-red)',width:`${(energy/ENERGY_MAX)*100}%`}}></div>
                 </div>
               </div>
             </div>
           </header>
 
-          {/* CENTER TAP (XEGA LOGO) */}
-          <main className="flex-1 relative">
+          {/* Main */}
+          <main className="flex-1 relative flex items-center justify-center">
             <div className="absolute inset-0 -z-10 pointer-events-none">
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
               <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full opacity-30 blur-3xl"
-                   style={{background: 'radial-gradient(closest-side, var(--xega-red), transparent 70%)'}}></div>
+                   style={{background:'radial-gradient(closest-side, var(--xega-red), transparent 70%)'}}></div>
             </div>
 
-            <div className="h-full flex flex-col items-center justify-center py-8">
-              {/* Score badge */}
-              <div className={`mb-6 px-4 py-1.5 rounded-full ${CARD_BG} text-sm tracking-wide`}>
-                <span className="mr-2 align-middle">XEGA</span>
-                <span className={`${R_TEXT} font-semibold align-middle`}>{format(xega)}</span>
+            <div className="flex flex-col items-center justify-center">
+              <div className={`mb-6 px-4 py-1.5 rounded-full ${CARD_BG} text-sm`}>
+                <span className="mr-2">XEGA</span> <span className={R_TEXT}>{format(xega)}</span>
               </div>
 
-              {/* Logo as TAP */}
               <motion.button
                 whileTap={{ scale: 0.93 }}
                 onClick={onTap}
-                className="relative h-44 w-44 md:h-56 md:w-56 rounded-3xl border border-[#3b0000] bg-[#120000] shadow-[0_0_160px_-30px_rgba(230,0,18,0.6)] flex items-center justify-center select-none"
-                aria-label="Tap"
+                className="relative h-44 w-44 md:h-56 md:w-56 rounded-3xl border border-[#3b0000] bg-[#120000] shadow-[0_0_160px_-30px_rgba(230,0,18,0.6)] flex items-center justify-center overflow-hidden select-none"
               >
-                <!-- LOGONU BURAYA KOY: xega-logo.svg veya xega-logo.png dosyanı index.html ile aynı klasöre at -->
-                <img src="/xega-logo.svg" alt="XEGA" onerror="this.outerHTML='<div class=&quot;text-3xl font-black tracking-wider text-[#ff2a2a]&quot;>XEGA</div>'" className="h-24 w-24" />
+                <img src="/xega-logo.svg" alt="XEGA" className="h-24 w-24" />
 
-                <div className="absolute inset-0 rounded-3xl ring-1 ring-[rgba(230,0,18,0.2)]"></div>
+                {/* Energy Pulse */}
+                <AnimatePresence>
+                  {pulse.map(p=>(
+                    <motion.div key={p.id}
+                      initial={{opacity:0.4,scale:0.3}}
+                      animate={{opacity:0,scale:3}}
+                      exit={{opacity:0}}
+                      transition={{duration:1.2,ease:'easeOut'}}
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        border:'3px solid rgba(255,0,0,0.4)',
+                        boxShadow:'0 0 50px rgba(255,0,0,0.3)',
+                      }}
+                    />
+                  ))}
+                </AnimatePresence>
 
                 {/* Coin burst */}
                 <AnimatePresence initial={false}>
-                  {burst.map(p => (
-                    <motion.div
-                      key={p.id}
-                      initial={{opacity:0.9, x:0, y:0, rotate:0, scale: p.scale}}
-                      animate={{opacity:0, x: Math.cos(p.angle)*p.dist, y: Math.sin(p.angle)*p.dist, rotate: p.rot}}
-                      exit={{opacity:0}}
-                      transition={{duration: 0.9, delay: p.delay, ease: "easeOut"}}
+                  {burst.map(p=>(
+                    <motion.div key={p.id}
+                      initial={{opacity:0.9,x:0,y:0,scale:p.scale}}
+                      animate={{opacity:0,x:Math.cos(p.angle)*p.dist,y:Math.sin(p.angle)*p.dist,rotate:p.rot}}
+                      transition={{duration:0.9,delay:p.delay,ease:'easeOut'}}
                       className="absolute pointer-events-none"
                     >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" fill="#ffd166"/>
                         <circle cx="12" cy="12" r="7" fill="#ffcc33"/>
                         <text x="12" y="13.5" text-anchor="middle" font-size="8" font-weight="700" fill="#8d4a00">Ξ</text>
@@ -182,100 +177,32 @@
             </div>
           </main>
 
-          {/* BOTTOM TABS */}
+          {/* Bottom Tabs */}
           <footer className="w-full border-t border-[#330000] bg-[#120000]/90 backdrop-blur">
             <div className="max-w-5xl mx-auto">
-              <div className="grid grid-cols-4">
+              <div className="grid grid-cols-4 text-center">
                 <Tab icon="🛒" label="Shop" active={tab==='shop'} onClick={()=>setTab('shop')} />
                 <Tab icon="👤" label="Profile" active={tab==='profile'} onClick={()=>setTab('profile')} />
                 <Tab icon="👑" label="Leaderboard" active={tab==='leader'} onClick={()=>setTab('leader')} />
                 <Tab icon="🔗" label="Referrals" active={tab==='ref'} onClick={()=>setTab('ref')} />
               </div>
             </div>
-
-            {/* Panels */}
-            <div className="max-w-5xl mx-auto px-3 pb-4">
-              {tab==='shop' && <ShopPanel xega={xega} setXega={setXega} setMult={setMult} setCrit={setCrit} />}
-              {tab==='profile' && <ProfilePanel
-                displayName={displayName}
-                setDisplayName={setDisplayName}
-                nameLocked={nameLocked}
-                setNameLocked={setNameLocked}
-                wallet={wallet}
-                setWallet={setWallet}
-              />}
-              {tab==='leader' && <LeaderPanel me={{name: displayName || 'Player', score: xega}} />}
-              {tab==='ref' && <RefPanel />}
-            </div>
           </footer>
         </div>
       );
     }
 
-    function Tab({icon, label, active, onClick}){
+    function Tab({icon,label,active,onClick}){
       return (
-        <button onClick={onClick} className={`flex flex-col items-center py-2 ${active ? 'text-[#ff2a2a]' : 'text-zinc-400'}`}>
-          <span className="text-base leading-none">{icon}</span>
-          <span className="text-[11px] tracking-wide">{label}</span>
+        <button onClick={onClick} className={`py-2 flex flex-col items-center ${active?'text-[#ff2a2a]':'text-zinc-400'}`}>
+          <span className="text-lg">{icon}</span>
+          <span className="text-[11px]">{label}</span>
         </button>
       );
     }
 
-    function PanelCard({children, className=""}){
-      return (
-        <div className={`mt-3 p-3 rounded-xl ${CARD_BG} ${className}`}>{children}</div>
-      );
-    }
-
-    function ShopPanel({ xega, setXega, setMult, setCrit }){
-      const items = [
-        { key:'mult', title:'Multiplier', desc:'Increase tap multiplier', cost:800, onBuy:()=>setMult(l=>l+1) },
-        { key:'crit', title:'Critical',   desc:'Higher critical chance',  cost:600, onBuy:()=>setCrit(l=>l+1) },
-      ];
-      return (
-        <PanelCard>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm">Balance: <span className="text-[#ff2a2a] font-semibold">{format(xega)}</span> XEGA</div>
-          </div>
-          <div className="space-y-2">
-            {items.map(it=> (
-              <div key={it.key} className="flex items-center justify-between p-3 rounded-lg bg-black/30 border border-[#330000]">
-                <div>
-                  <div className="font-medium text-zinc-100">{it.title}</div>
-                  <div className="text-xs text-zinc-400">{it.desc}</div>
-                </div>
-                <button
-                  onClick={()=>{ if (xega>=it.cost){ setXega(v=>v-it.cost); it.onBuy(); } }}
-                  className="px-3 py-1.5 rounded-lg border border-[#3b0000] bg-[#1a0000] text-zinc-200 hover:brightness-110"
-                >Buy • {it.cost}</button>
-              </div>
-            ))}
-          </div>
-        </PanelCard>
-      );
-    }
-
-    function ProfilePanel({ displayName, setDisplayName, nameLocked, setNameLocked, wallet, setWallet }){
-      const [nameDraft, setNameDraft] = useState("");
-      const [walletDraft, setWalletDraft] = useState("");
-      return (
-        <PanelCard>
-          <div className="grid md:grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-zinc-400 mb-1">Display Name {nameLocked && <span className="text-zinc-500">(locked)</span>}</div>
-              <div className="flex gap-2">
-                <input disabled={nameLocked} value={nameLocked? (displayName||"") : nameDraft}
-                       onChange={e=>setNameDraft(e.target.value)}
-                       className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-[#330000] text-zinc-100 placeholder:text-zinc-500"
-                       placeholder="Choose your name (one-time)"/>
-                <button disabled={nameLocked}
-                        className="px-3 py-2 rounded-lg border border-[#3b0000] bg-[#1a0000] text-zinc-200"
-                        onClick={()=>{ const s=nameDraft.trim(); if(s.length>=3&&s.length<=20){ setDisplayName(s); setNameLocked(true); } }}>
-                  Save
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-zinc-400 mb-1">Solana Wallet</div>
-              <div className="flex gap-2">
-                <input value={walletDraft} onChange={e=>setWall
+    const root=ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
