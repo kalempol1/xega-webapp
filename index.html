@@ -1,247 +1,329 @@
-<!DOCTYPE html>
-<html lang="en" class="h-full">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>XEGA TAP — WebApp</title>
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShoppingCart, User2, Crown, Share2, Zap, Sparkles, Gauge, Coins } from "lucide-react";
 
-  <!-- Tailwind (CDN) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            // Sadece kırmızı & siyah tonları
-            xega: {
-              50:  '#ffe5e5',
-              100: '#ffcaca',
-              200: '#ff9b9b',
-              300: '#ff6b6b',
-              400: '#f94848',
-              500: '#e71919', // primary red
-              600: '#c51616',
-              700: '#991111',
-              800: '#6f0b0b',
-              900: '#3a0505'
-            },
-            ink: {
-              900: '#0b0b0b',
-              800: '#151515',
-              700: '#1a1a1a'
-            }
-          },
-          boxShadow: {
-            glow: '0 0 120px rgba(231,25,25,.35)'
-          },
-          keyframes: {
-            pulseGlow: {
-              '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 rgba(231,25,25,0.0)' },
-              '50%': { transform: 'scale(1.02)', boxShadow: '0 0 80px rgba(231,25,25,.35)' }
-            }
-          },
-          animation: {
-            pulseGlow: 'pulseGlow 2.4s ease-in-out infinite'
-          }
-        }
-      }
-    }
-  </script>
+/**
+ * XEGA WebApp — v1.0 (from scratch)
+ * Design goals (per SEGA):
+ * - Red/Black only. Professional, minimal, premium.
+ * - Centered XEGA logo acts as TAP. On tap → coin burst.
+ * - Compact HUD on top: Energy (right-aligned bar), tiny Crit/Mult numbers.
+ * - Bottom tab bar: Shop | Profile | Leaderboard | Referrals.
+ * - Referrals tab shows users you referred (mock list for now).
+ * - Ready to wire to backend later.
+ *
+ * Tech: React + Tailwind + framer-motion. No external UI kit to keep it lean.
+ */
 
-  <!-- Telegram WebApp SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+// ====== THEME ======
+const BG_GRADIENT = "bg-gradient-to-b from-[#2a0000] via-[#190000] to-[#0d0000]"; // deep red → near black
+const CARD_BG = "bg-[#170000]/70 border border-[#330000]"; // translucent dark red
+const R_TEXT = "text-[#ff2a2a]"; // XEGA red text
+const R_ACCENT = "#e60012"; // pure accent red
 
-  <style>
-    /* KIRMIZI & SİYAH PALET — açık metin için siyah kullanıyoruz */
-    html, body { height: 100%; background: #3a0505; }
-    .surface { background: linear-gradient(180deg, #4b0505, #3a0505 40%, #2a0404 100%); }
-    .panel   { background: rgba(231,25,25,0.08); border: 1px solid rgba(0,0,0,.6); }
-    .chip    { background: rgba(231,25,25,0.13); border: 1px solid rgba(0,0,0,.7); }
-    .divider { border-color: rgba(0,0,0,.5); }
-    .btn-red { background: linear-gradient(180deg, #e71919, #c51616); border: 2px solid #991111; }
-    .btn-red:active { transform: scale(.98); }
-    .tab-btn { color: #000; background: rgba(231,25,25,0.16); border: 1px solid rgba(0,0,0,.6); }
-    .tab-btn.active { background: linear-gradient(180deg, #e71919, #c51616); border-color: #991111; color: #000; }
-    .text-soft { color: #120000; }       /* koyu siyah ton */
-    .text-hard { color: #000000; }       /* tam siyah */
-    .text-ghost { color: #220000; }      /* hafif kırmızımsı-siyah */
-  </style>
-</head>
+// ====== GAME CONSTANTS (mirror bot logic loosely for UX) ======
+const ENERGY_MAX = 100;
+const MULTI_PER_LEVEL = 0.5;
+const CRIT_BASE = 0.12;
+const CRIT_PER_LEVEL = 0.02;
+const CRIT_CAP = 0.40;
 
-<body class="h-full text-hard">
-  <div class="min-h-screen surface flex flex-col">
+// ====== UTIL ======
+function clamp(n, a, b){ return Math.min(b, Math.max(a, n)); }
+function format(num){ return new Intl.NumberFormat().format(num); }
 
-    <!-- ÜST HERO: Ortada XEGA Logo -->
-    <header class="relative">
-      <div class="max-w-6xl mx-auto px-4 pt-10 pb-8">
-        <div class="flex items-center justify-center">
-          <!-- Logo kapsayıcı -->
-          <div class="h-44 w-44 rounded-3xl btn-red shadow-glow animate-pulseGlow grid place-items-center select-none">
-            <!-- Inline XEGA Logo (SVG) -->
-            <svg viewBox="0 0 240 240" class="h-24 w-24">
-              <defs>
-                <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%"  stop-color="#ff6b6b"/>
-                  <stop offset="100%" stop-color="#e71919"/>
-                </linearGradient>
-              </defs>
-              <rect x="8" y="8" width="224" height="224" rx="36" fill="url(#grad)" stroke="#991111" stroke-width="10"/>
-              <path d="M60 160 L120 60 L180 160 Z M90 160 L150 160" stroke="#000" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+// Particle factory (coin burst)
+function mkBurst(n=14){
+  return Array.from({length:n}).map((_,i)=>({
+    id: Math.random().toString(36).slice(2,9)+i,
+    // random polar coords
+    angle: (Math.random()*Math.PI*2),
+    dist: 40 + Math.random()*80,
+    scale: 0.7 + Math.random()*0.6,
+    delay: Math.random()*0.02,
+    rot: (Math.random()*60-30)
+  }));
+}
+
+// ====== ROOT APP ======
+export default function App(){
+  // Core state (mock; will be bound to API later)
+  const [displayName, setDisplayName] = useState("Player");
+  const [nameLocked, setNameLocked] = useState(false);
+  const [wallet, setWallet] = useState("");
+
+  const [xega, setXega] = useState(0);
+  const [energy, setEnergy] = useState(ENERGY_MAX);
+  const [multiplier_level, setMult] = useState(0);
+  const [crit_level, setCrit] = useState(0);
+
+  const [tab, setTab] = useState("shop");
+
+  // Particles
+  const [burst, setBurst] = useState([]);
+
+  // Tap logic (center logo)
+  function onTap(){
+    if (energy <= 0) return;
+    const multi = 1 + MULTI_PER_LEVEL * multiplier_level;
+    const critChance = Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * crit_level);
+    const isCrit = Math.random() < critChance;
+    const base = 1;
+    const gain = Math.max(1, Math.round(base * multi * (isCrit?2:1)));
+    setXega(v => v + gain);
+    setEnergy(e => clamp(e-1, 0, ENERGY_MAX));
+    setBurst(mkBurst(16));
+  }
+
+  // Slow regen (UX only)
+  useEffect(()=>{
+    const id = setInterval(()=>{
+      setEnergy(e => (e<ENERGY_MAX? e+1 : e));
+    }, 1500);
+    return ()=>clearInterval(id);
+  },[]);
+
+  // ====== DERIVED ======
+  const multX = useMemo(()=> (1 + MULTI_PER_LEVEL * multiplier_level).toFixed(1), [multiplier_level]);
+  const critPct = useMemo(()=> Math.round(Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * crit_level)*100), [crit_level]);
+
+  return (
+    <div className={`min-h-screen ${BG_GRADIENT} text-black flex flex-col`}> 
+      {/* TOP HUD */}
+      <header className="w-full px-4 pt-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left tiny stats */}
+            <div className="flex items-center gap-3 text-xs">
+              <div className={`px-2 py-1 rounded-md ${CARD_BG} text-zinc-200 flex items-center gap-1`}>
+                <Sparkles className="h-3.5 w-3.5 text-zinc-300"/>
+                <span className="text-zinc-400">Crit</span>
+                <span className="font-semibold text-zinc-100">{critPct}%</span>
+              </div>
+              <div className={`px-2 py-1 rounded-md ${CARD_BG} text-zinc-200 flex items-center gap-1`}>
+                <Gauge className="h-3.5 w-3.5 text-zinc-300"/>
+                <span className="text-zinc-400">Mult</span>
+                <span className="font-semibold text-zinc-100">x{multX}</span>
+              </div>
+            </div>
+            {/* Right energy bar */}
+            <div className={`px-2 py-2 rounded-xl ${CARD_BG} w-56`}>
+              <div className="flex items-center justify-between text-[10px] text-zinc-300 mb-1">
+                <span>Energy</span>
+                <span className="text-zinc-400">{energy}/{ENERGY_MAX}</span>
+              </div>
+              <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+                <div className="h-full bg-[--xegaRed]" style={{"--xegaRed": R_ACCENT, width: `${(energy/ENERGY_MAX)*100}%`}}/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* CENTER TAP (XEGA LOGO) */}
+      <main className="flex-1 relative">
+        <div className="absolute inset-0 -z-10 pointer-events-none">
+          {/* soft vignette */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"/>
+          {/* glow */}
+          <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full opacity-30 blur-3xl"
+               style={{background: `radial-gradient(closest-side, ${R_ACCENT}, transparent 70%)`}}/>
+        </div>
+
+        <div className="h-full flex flex-col items-center justify-center py-8">
+          {/* Score badge */}
+          <div className={`mb-6 px-4 py-1.5 rounded-full ${CARD_BG} text-zinc-200 text-sm tracking-wide`}>
+            <span className="mr-2 align-middle">XEGA</span>
+            <span className={`${R_TEXT} font-semibold align-middle`}>{format(xega)}</span>
+          </div>
+
+          {/* Logo as tap button */}
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            onClick={onTap}
+            className="relative h-44 w-44 md:h-56 md:w-56 rounded-3xl border border-[#3b0000] bg-[#120000] shadow-[0_0_160px_-30px_rgba(230,0,18,0.6)] flex items-center justify-center select-none"
+            aria-label="Tap"
+          >
+            {/* Preferred: project /public/xega-logo.svg. Fallback to text if missing */}
+            <img src="/xega-logo.svg" alt="XEGA" onError={(e)=>{e.currentTarget.outerHTML='<div class=\'text-3xl font-black tracking-wider text-[#ff2a2a]\'>XEGA</div>'}} className="h-24 w-24"/>
+
+            {/* subtle ring */}
+            <div className="absolute inset-0 rounded-3xl ring-1 ring-[#e60012]/20"/>
+
+            {/* coin burst layer */}
+            <AnimatePresence initial={false}>
+              {burst.map(p => (
+                <motion.div
+                  key={p.id}
+                  initial={{opacity:0.9, x:0, y:0, rotate:0, scale: p.scale}}
+                  animate={{opacity:0, x: Math.cos(p.angle)*p.dist, y: Math.sin(p.angle)*p.dist, rotate: p.rot}}
+                  exit={{opacity:0}}
+                  transition={{duration: 0.9, delay: p.delay, ease: "easeOut"}}
+                  className="absolute pointer-events-none"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" fill="#ffd166"/>
+                    <circle cx="12" cy="12" r="7" fill="#ffcc33"/>
+                    <text x="12" y="13.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="#8d4a00">Ξ</text>
+                  </svg>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.button>
+        </div>
+      </main>
+
+      {/* BOTTOM TABS */}
+      <footer className="w-full border-t border-[#330000] bg-[#120000]/90 backdrop-blur">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-4">
+            <Tab icon={<ShoppingCart className="h-5 w-5"/>} label="Shop" active={tab==='shop'} onClick={()=>setTab('shop')}/>
+            <Tab icon={<User2 className="h-5 w-5"/>} label="Profile" active={tab==='profile'} onClick={()=>setTab('profile')}/>
+            <Tab icon={<Crown className="h-5 w-5"/>} label="Leaderboard" active={tab==='leader'} onClick={()=>setTab('leader')}/>
+            <Tab icon={<Share2 className="h-5 w-5"/>} label="Referrals" active={tab==='ref'} onClick={()=>setTab('ref')}/>
           </div>
         </div>
 
-        <!-- Stat çipleri -->
-        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="panel rounded-2xl p-4">
-            <div class="text-ghost text-sm">XEGA</div>
-            <div id="stat-xega" class="text-2xl font-semibold">0</div>
-          </div>
-          <div class="panel rounded-2xl p-4">
-            <div class="text-ghost text-sm">Energy</div>
-            <div class="flex items-end justify-between mt-1">
-              <div class="text-2xl font-semibold"><span id="stat-energy">100</span>/100</div>
-              <div class="text-ghost text-xs ml-4"><span id="stat-regen">36</span>s / energy</div>
+        {/* Tab panels */}
+        <div className="max-w-5xl mx-auto px-3 pb-4">
+          {tab==='shop'    && <ShopPanel xega={xega} setXega={setXega} setMult={setMult} setCrit={setCrit} />}
+          {tab==='profile' && <ProfilePanel displayName={displayName} setDisplayName={setDisplayName} nameLocked={nameLocked} setNameLocked={setNameLocked} wallet={wallet} setWallet={setWallet} />}
+          {tab==='leader'  && <LeaderPanel me={{name: displayName||'Player', score: xega}} />}
+          {tab==='ref'     && <RefPanel />}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// ====== TABS ======
+function Tab({icon, label, active, onClick}){
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center py-2 ${active? 'text-[#ff2a2a]' : 'text-zinc-400'}`}>
+      {icon}
+      <span className="text-[11px] tracking-wide">{label}</span>
+    </button>
+  );
+}
+
+function PanelCard({children, className=""}){
+  return (
+    <div className={`mt-3 p-3 rounded-xl ${CARD_BG} text-zinc-200 ${className}`}>{children}</div>
+  );
+}
+
+// SHOP (mock logic; wire to backend later)
+function ShopPanel({ xega, setXega, setMult, setCrit }){
+  const items = [
+    { key:'mult', title:'Multiplier', desc:'Increase tap multiplier', cost:800, onBuy:()=>setMult(l=>l+1) },
+    { key:'crit', title:'Critical',   desc:'Higher critical chance',  cost:600, onBuy:()=>setCrit(l=>l+1) },
+  ];
+  return (
+    <PanelCard>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm">Balance: <span className={`${R_TEXT} font-semibold`}>{format(xega)}</span> XEGA</div>
+      </div>
+      <div className="space-y-2">
+        {items.map(it=> (
+          <div key={it.key} className="flex items-center justify-between p-3 rounded-lg bg-black/30 border border-[#330000]">
+            <div>
+              <div className="font-medium text-zinc-100">{it.title}</div>
+              <div className="text-xs text-zinc-400">{it.desc}</div>
             </div>
-            <div class="mt-2 w-full h-2 bg-black/60 rounded-full">
-              <div id="energy-bar" class="h-2 bg-black rounded-full" style="width:100%"></div>
-            </div>
+            <button
+              onClick={()=>{ if (xega>=it.cost){ setXega(v=>v-it.cost); it.onBuy(); } }}
+              className="px-3 py-1.5 rounded-lg border border-[#3b0000] bg-[#1a0000] text-zinc-200 hover:brightness-110"
+            >Buy • {it.cost}</button>
           </div>
-          <div class="panel rounded-2xl p-4">
-            <div class="text-ghost text-sm">Multiplier</div>
-            <div class="text-2xl font-semibold">x<span id="stat-mult">1.0</span></div>
-            <div class="text-ghost text-xs">Lv <span id="lv-mult">0</span></div>
+        ))}
+      </div>
+    </PanelCard>
+  );
+}
+
+function ProfilePanel({ displayName, setDisplayName, nameLocked, setNameLocked, wallet, setWallet }){
+  const [nameDraft, setNameDraft] = useState("");
+  const [walletDraft, setWalletDraft] = useState("");
+  return (
+    <PanelCard>
+      <div className="grid md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-zinc-400 mb-1">Display Name {nameLocked && <span className="text-zinc-500">(locked)</span>}</div>
+          <div className="flex gap-2">
+            <input disabled={nameLocked} value={nameLocked? (displayName||"") : nameDraft}
+                   onChange={e=>setNameDraft(e.target.value)}
+                   className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-[#330000] text-zinc-100 placeholder:text-zinc-500"
+                   placeholder="Choose your name (one-time)"/>
+            <button disabled={nameLocked}
+                    className="px-3 py-2 rounded-lg border border-[#3b0000] bg-[#1a0000] text-zinc-200"
+                    onClick={()=>{ const s=nameDraft.trim(); if(s.length>=3&&s.length<=20){ setDisplayName(s); setNameLocked(true); } }}>
+              Save
+            </button>
           </div>
-          <div class="panel rounded-2xl p-4">
-            <div class="text-ghost text-sm">Critical</div>
-            <div class="text-2xl font-semibold"><span id="stat-crit">12</span>%</div>
-            <div class="text-ghost text-xs">Lv <span id="lv-crit">0</span></div>
+        </div>
+        <div>
+          <div className="text-xs text-zinc-400 mb-1">Solana Wallet</div>
+          <div className="flex gap-2">
+            <input value={walletDraft} onChange={e=>setWalletDraft(e.target.value)}
+                   className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-[#330000] text-zinc-100 placeholder:text-zinc-500"
+                   placeholder="Paste your wallet (e.g., 9zqJ...)"/>
+            <button className="px-3 py-2 rounded-lg border border-[#3b0000] bg-[#1a0000] text-zinc-200"
+                    onClick={()=>setWallet(walletDraft.trim())}>Save</button>
           </div>
+          {wallet && <div className="text-xs text-zinc-500 mt-1">Current: <span className="text-zinc-200">{wallet}</span></div>}
         </div>
       </div>
-    </header>
+    </PanelCard>
+  );
+}
 
-    <!-- ANA İÇERİK: Sekmelere göre değişen paneller -->
-    <main class="flex-1 max-w-6xl mx-auto w-full px-4 pb-28">
-      <!-- SHOP -->
-      <section id="tab-shop" class="panel rounded-2xl p-6">
-        <div class="text-xl font-semibold mb-4">Shop</div>
-        <div id="shop" class="space-y-3"></div>
-      </section>
-
-      <!-- PROFILE -->
-      <section id="tab-profile" class="panel rounded-2xl p-6 hidden">
-        <div class="text-xl font-semibold mb-4">Profile</div>
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="chip rounded-2xl p-4">
-            <div class="text-ghost text-sm mb-1">Display Name <span id="name-lock" class="opacity-70 hidden">(locked)</span></div>
-            <div class="flex gap-2">
-              <input id="name-input" type="text"
-                     class="flex-1 px-3 py-2 rounded-xl bg-black/10 border border-black/70 text-hard placeholder:text-ghost"
-                     placeholder="Choose your name (one-time)"/>
-              <button id="name-save" class="px-3 py-2 rounded-xl tab-btn">Save</button>
+function LeaderPanel({ me }){
+  const bots = [
+    { name:'Nova', score:52000 },
+    { name:'Orion', score:48000 },
+    { name:'Lyra', score:43000 },
+    { name:'Echo', score:41000 },
+  ];
+  const list = useMemo(()=> [me, ...bots].sort((a,b)=>b.score-a.score).slice(0,10), [me]);
+  return (
+    <PanelCard>
+      <div className="space-y-2">
+        {list.map((r,i)=> (
+          <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-[#330000] text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-6 text-zinc-500">{i+1}.</div>
+              <div className="text-zinc-200">{r.name}</div>
             </div>
+            <div className={`${R_TEXT} font-semibold`}>{format(r.score)}</div>
           </div>
-          <div class="chip rounded-2xl p-4">
-            <div class="text-ghost text-sm mb-1">Solana Wallet</div>
-            <div class="flex gap-2">
-              <input id="wallet-input" type="text"
-                     class="flex-1 px-3 py-2 rounded-xl bg-black/10 border border-black/70 text-hard placeholder:text-ghost"
-                     placeholder="Paste wallet (e.g., 9zqJ...)"/>
-              <button id="wallet-save" class="px-3 py-2 rounded-xl tab-btn">Save</button>
-            </div>
-            <div class="text-ghost text-xs mt-1">Current: <span id="wallet-current" class="font-medium">—</span></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- LEADERBOARD -->
-      <section id="tab-leaderboard" class="panel rounded-2xl p-6 hidden">
-        <div class="text-xl font-semibold mb-4">Leaderboard</div>
-        <div id="leaders" class="space-y-2"></div>
-      </section>
-
-      <!-- REFERRALS -->
-      <section id="tab-referrals" class="panel rounded-2xl p-6 hidden">
-        <div class="text-xl font-semibold mb-4">Referrals</div>
-        <div class="text-ghost text-sm mb-3">People you referred</div>
-        <div id="ref-list" class="space-y-2"></div>
-      </section>
-    </main>
-
-    <!-- ALT TAB BAR -->
-    <nav class="fixed bottom-0 inset-x-0">
-      <div class="max-w-6xl mx-auto px-4 pb-3">
-        <div class="chip rounded-2xl p-2 flex items-center justify-between gap-2 backdrop-blur">
-          <button class="tab-btn rounded-xl px-4 py-2 w-full active" data-tab="shop">Shop</button>
-          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="profile">Profile</button>
-          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="leaderboard">Leaderboard</button>
-          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="referrals">Referrals</button>
-        </div>
+        ))}
       </div>
-    </nav>
-  </div>
+    </PanelCard>
+  );
+}
 
-  <!-- App Logic -->
-  <script>
-    // === Constants ===
-    const ENERGY_MAX = 100;
-    const REGEN_BASE_SEC = 36;
-    const REGEN_FLOOR_SEC = 10;
-    const BASE_TAP = 1;
-    const CRIT_BASE = 0.12;
-    const CRIT_PER_LEVEL = 0.02;
-    const CRIT_CAP = 0.40;
-    const MULTI_PER_LEVEL = 0.5;
-
-    const SHOP_DEF = {
-      tap_power:  { key: 'tap_power',  name:'Tap Power (+1)', base:500,  m0:1.75, inc:0.02,  max:10 },
-      multiplier: { key: 'multiplier', name:'Multiplier',     base:800,  m0:1.60, inc:0.015, max:30 },
-      crit:       { key: 'crit',       name:'Critical',       base:600,  m0:1.55, inc:0.015, max:30 },
-      regen:      { key: 'regen',      name:'Energy Regen',   base:500,  m0:1.50, inc:0.010, max:30 },
-      autotap:    { key: 'autotap',    name:'AutoTap (1 Level)', base:25000, m0:1.0, inc:0.0, max:1 },
-    };
-
-    function nextCost(def, nextLevel){
-      if (nextLevel <= 0) return 0;
-      const factor = def.m0 + def.inc * (nextLevel - 1);
-      return Math.max(1, Math.round(def.base * Math.pow(factor, (nextLevel - 1))));
-    }
-    function regenSecFromLevel(regenLevel){
-      const sec = Math.round(REGEN_BASE_SEC * Math.pow(0.90, regenLevel));
-      return Math.max(REGEN_FLOOR_SEC, sec);
-    }
-    function computeTapGain(state){
-      const tapPower = (state.tap_power_level || 0);
-      const baseGain = BASE_TAP + tapPower;
-      const multi = 1 + MULTI_PER_LEVEL * (state.multiplier_level || 0);
-      const critChance = Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * (state.crit_level || 0));
-      const isCrit = Math.random() < critChance;
-      const gain = Math.max(1, Math.round(baseGain * multi * (isCrit ? 2 : 1)));
-      return { gain, isCrit };
-    }
-
-    // === State (mock) ===
-    const st = {
-      display_name: '',
-      name_locked: false,
-      wallet: '',
-      xega: 0,
-      energy: ENERGY_MAX,
-      tap_power_level: 0,
-      multiplier_level: 0,
-      crit_level: 0,
-      regen_level: 0,
-      autotap_owned: false,
-      autotap_enabled: false,
-      autotap_used_min: 0,
-      // Mock referrals (backendten doldurulacak)
-      referrals: [
-        // { name:'PlayerA', since:'2025-10-01' },
-        // { name:'PlayerB', since:'2025-10-03' },
-      ]
-    };
-
-    // === DOM refs ===
-    const el = {
-      xega: document.getElementById('stat-xega'),
+function RefPanel(){
+  // Mock: list of users you referred
+  const referred = [
+    { name:'Ares', joined:"2025-09-12", score: 2600 },
+    { name:'Helix', joined:"2025-09-18", score: 1800 },
+    { name:'Vega', joined:"2025-10-01", score: 950 },
+  ];
+  return (
+    <PanelCard>
+      <div className="text-sm mb-2">Your referrals</div>
+      <div className="space-y-2">
+        {referred.map((r,i)=> (
+          <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-[#330000] text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{background:R_ACCENT}}/>
+              <div className="text-zinc-200">{r.name}</div>
+              <div className="text-[11px] text-zinc-500">joined {r.joined}</div>
+            </div>
+            <div className="text-zinc-300 font-medium">{format(r.score)}</div>
+          </div>
+        ))}
+      </div>
+    </PanelCard>
+  );
+}
