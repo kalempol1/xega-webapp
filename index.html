@@ -12,183 +12,179 @@
       theme: {
         extend: {
           colors: {
+            // Sadece kırmızı & siyah tonları
             xega: {
               50:  '#ffe5e5',
               100: '#ffcaca',
               200: '#ff9b9b',
               300: '#ff6b6b',
               400: '#f94848',
-              500: '#e71919', /* primary red */
-              600: '#cc1414',
-              700: '#a20f0f',
-              800: '#7b0a0a',
-              900: '#4b0505',
+              500: '#e71919', // primary red
+              600: '#c51616',
+              700: '#991111',
+              800: '#6f0b0b',
+              900: '#3a0505'
             },
+            ink: {
+              900: '#0b0b0b',
+              800: '#151515',
+              700: '#1a1a1a'
+            }
           },
           boxShadow: {
-            glow: '0 0 80px rgba(231,25,25,.35)',
+            glow: '0 0 120px rgba(231,25,25,.35)'
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 rgba(231,25,25,0.0)' },
+              '50%': { transform: 'scale(1.02)', boxShadow: '0 0 80px rgba(231,25,25,.35)' }
+            }
+          },
+          animation: {
+            pulseGlow: 'pulseGlow 2.4s ease-in-out infinite'
           }
         }
       }
     }
   </script>
 
-  <!-- Telegram WebApp SDK (opsiyonel: gerçek Telegram içinde açınca aktif olur) -->
+  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
-    /* Siyah metin için varsayılan */
-    :root { color-scheme: light; }
-    html, body { background: #ffefef; } /* açık kırmızımsı zemin */
-    .card {
-      background: #ffdede; /* daha açık kırmızı panel */
-      border: 1px solid rgba(0,0,0,.08);
-    }
-    .tap-btn {
-      background: linear-gradient(180deg, #ff6b6b, #e71919);
-      border: 2px solid #a20f0f;
-    }
-    .tap-btn:active { transform: scale(.97); }
+    /* KIRMIZI & SİYAH PALET — açık metin için siyah kullanıyoruz */
+    html, body { height: 100%; background: #3a0505; }
+    .surface { background: linear-gradient(180deg, #4b0505, #3a0505 40%, #2a0404 100%); }
+    .panel   { background: rgba(231,25,25,0.08); border: 1px solid rgba(0,0,0,.6); }
+    .chip    { background: rgba(231,25,25,0.13); border: 1px solid rgba(0,0,0,.7); }
+    .divider { border-color: rgba(0,0,0,.5); }
+    .btn-red { background: linear-gradient(180deg, #e71919, #c51616); border: 2px solid #991111; }
+    .btn-red:active { transform: scale(.98); }
+    .tab-btn { color: #000; background: rgba(231,25,25,0.16); border: 1px solid rgba(0,0,0,.6); }
+    .tab-btn.active { background: linear-gradient(180deg, #e71919, #c51616); border-color: #991111; color: #000; }
+    .text-soft { color: #120000; }       /* koyu siyah ton */
+    .text-hard { color: #000000; }       /* tam siyah */
+    .text-ghost { color: #220000; }      /* hafif kırmızımsı-siyah */
   </style>
 </head>
 
-<body class="h-full text-black">
-  <div class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <header class="w-full">
-      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-xl bg-xega-200 border border-xega-400 flex items-center justify-center shadow-glow">
-            <span class="text-xl">🟥</span>
-          </div>
-          <div>
-            <div class="font-semibold text-xl">XEGA TAP</div>
-            <div class="text-xs">Airdrop Season</div>
+<body class="h-full text-hard">
+  <div class="min-h-screen surface flex flex-col">
+
+    <!-- ÜST HERO: Ortada XEGA Logo -->
+    <header class="relative">
+      <div class="max-w-6xl mx-auto px-4 pt-10 pb-8">
+        <div class="flex items-center justify-center">
+          <!-- Logo kapsayıcı -->
+          <div class="h-44 w-44 rounded-3xl btn-red shadow-glow animate-pulseGlow grid place-items-center select-none">
+            <!-- Inline XEGA Logo (SVG) -->
+            <svg viewBox="0 0 240 240" class="h-24 w-24">
+              <defs>
+                <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%"  stop-color="#ff6b6b"/>
+                  <stop offset="100%" stop-color="#e71919"/>
+                </linearGradient>
+              </defs>
+              <rect x="8" y="8" width="224" height="224" rx="36" fill="url(#grad)" stroke="#991111" stroke-width="10"/>
+              <path d="M60 160 L120 60 L180 160 Z M90 160 L150 160" stroke="#000" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="settingsBtn" class="px-3 py-2 rounded-xl bg-xega-100 border border-black/10">Settings</button>
+
+        <!-- Stat çipleri -->
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="panel rounded-2xl p-4">
+            <div class="text-ghost text-sm">XEGA</div>
+            <div id="stat-xega" class="text-2xl font-semibold">0</div>
+          </div>
+          <div class="panel rounded-2xl p-4">
+            <div class="text-ghost text-sm">Energy</div>
+            <div class="flex items-end justify-between mt-1">
+              <div class="text-2xl font-semibold"><span id="stat-energy">100</span>/100</div>
+              <div class="text-ghost text-xs ml-4"><span id="stat-regen">36</span>s / energy</div>
+            </div>
+            <div class="mt-2 w-full h-2 bg-black/60 rounded-full">
+              <div id="energy-bar" class="h-2 bg-black rounded-full" style="width:100%"></div>
+            </div>
+          </div>
+          <div class="panel rounded-2xl p-4">
+            <div class="text-ghost text-sm">Multiplier</div>
+            <div class="text-2xl font-semibold">x<span id="stat-mult">1.0</span></div>
+            <div class="text-ghost text-xs">Lv <span id="lv-mult">0</span></div>
+          </div>
+          <div class="panel rounded-2xl p-4">
+            <div class="text-ghost text-sm">Critical</div>
+            <div class="text-2xl font-semibold"><span id="stat-crit">12</span>%</div>
+            <div class="text-ghost text-xs">Lv <span id="lv-crit">0</span></div>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Main -->
-    <main class="flex-1">
-      <div class="max-w-6xl mx-auto px-4 pb-16 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Left: Stats + Tap -->
-        <section class="lg:col-span-2 space-y-4">
-          <!-- Stats -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="card rounded-2xl p-4">
-              <div class="text-sm opacity-80">XEGA</div>
-              <div id="stat-xega" class="text-2xl font-semibold">0</div>
-            </div>
+    <!-- ANA İÇERİK: Sekmelere göre değişen paneller -->
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 pb-28">
+      <!-- SHOP -->
+      <section id="tab-shop" class="panel rounded-2xl p-6">
+        <div class="text-xl font-semibold mb-4">Shop</div>
+        <div id="shop" class="space-y-3"></div>
+      </section>
 
-            <div class="card rounded-2xl p-4">
-              <div class="text-sm opacity-80">Energy</div>
-              <div class="flex items-end justify-between mt-1">
-                <div class="text-2xl font-semibold"><span id="stat-energy">100</span>/100</div>
-                <div class="text-xs opacity-70 ml-4"><span id="stat-regen">36</span>s / energy</div>
-              </div>
-              <div class="mt-2 w-full h-2 bg-black/10 rounded-full">
-                <div id="energy-bar" class="h-2 bg-black/80 rounded-full" style="width:100%"></div>
-              </div>
-            </div>
-
-            <div class="card rounded-2xl p-4">
-              <div class="text-sm opacity-80">Multiplier</div>
-              <div class="text-2xl font-semibold">x<span id="stat-mult">1.0</span></div>
-              <div class="text-xs opacity-70">Lv <span id="lv-mult">0</span></div>
-            </div>
-
-            <div class="card rounded-2xl p-4">
-              <div class="text-sm opacity-80">Critical</div>
-              <div class="text-2xl font-semibold"><span id="stat-crit">12</span>%</div>
-              <div class="text-xs opacity-70">Lv <span id="lv-crit">0</span></div>
+      <!-- PROFILE -->
+      <section id="tab-profile" class="panel rounded-2xl p-6 hidden">
+        <div class="text-xl font-semibold mb-4">Profile</div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="chip rounded-2xl p-4">
+            <div class="text-ghost text-sm mb-1">Display Name <span id="name-lock" class="opacity-70 hidden">(locked)</span></div>
+            <div class="flex gap-2">
+              <input id="name-input" type="text"
+                     class="flex-1 px-3 py-2 rounded-xl bg-black/10 border border-black/70 text-hard placeholder:text-ghost"
+                     placeholder="Choose your name (one-time)"/>
+              <button id="name-save" class="px-3 py-2 rounded-xl tab-btn">Save</button>
             </div>
           </div>
-
-          <!-- TAP -->
-          <div class="card rounded-2xl p-6">
-            <div class="grid md:grid-cols-2 gap-6 items-center">
-              <div>
-                <div class="opacity-80 text-sm">Tap to earn XEGA</div>
-                <div class="text-3xl font-semibold mt-1">Hello, <span id="hello-name">Player</span></div>
-                <div class="text-xs opacity-70 mt-2">
-                  AutoTap: <span id="autotap-state">—</span>
-                </div>
-                <div class="flex items-center gap-3 mt-4">
-                  <label class="inline-flex items-center gap-2 select-none">
-                    <input id="autotap-toggle" type="checkbox" class="h-4 w-4 accent-black" />
-                    <span class="text-sm">Enable AutoTap</span>
-                  </label>
-                  <span id="autotap-remaining" class="text-xs opacity-70 hidden">300 min left</span>
-                </div>
-              </div>
-              <div class="flex justify-center">
-                <button id="tapBtn" class="tap-btn shadow-glow h-40 w-40 rounded-3xl flex items-center justify-center text-3xl font-bold select-none">
-                  🔥 TAP
-                </button>
-              </div>
+          <div class="chip rounded-2xl p-4">
+            <div class="text-ghost text-sm mb-1">Solana Wallet</div>
+            <div class="flex gap-2">
+              <input id="wallet-input" type="text"
+                     class="flex-1 px-3 py-2 rounded-xl bg-black/10 border border-black/70 text-hard placeholder:text-ghost"
+                     placeholder="Paste wallet (e.g., 9zqJ...)"/>
+              <button id="wallet-save" class="px-3 py-2 rounded-xl tab-btn">Save</button>
             </div>
+            <div class="text-ghost text-xs mt-1">Current: <span id="wallet-current" class="font-medium">—</span></div>
           </div>
+        </div>
+      </section>
 
-          <!-- Shop -->
-          <div class="card rounded-2xl p-6">
-            <div class="text-lg font-semibold mb-4">Shop</div>
-            <div id="shop" class="space-y-3"></div>
-          </div>
-        </section>
+      <!-- LEADERBOARD -->
+      <section id="tab-leaderboard" class="panel rounded-2xl p-6 hidden">
+        <div class="text-xl font-semibold mb-4">Leaderboard</div>
+        <div id="leaders" class="space-y-2"></div>
+      </section>
 
-        <!-- Right: Profile + Leaderboard -->
-        <aside class="space-y-4">
-          <!-- Profile -->
-          <div class="card rounded-2xl p-6">
-            <div class="text-lg font-semibold mb-4">Profile</div>
-
-            <div class="mb-4">
-              <div class="text-xs opacity-70 mb-1">Display Name <span id="name-lock" class="opacity-60 hidden">(locked)</span></div>
-              <div class="flex gap-2">
-                <input id="name-input" type="text" class="flex-1 px-3 py-2 rounded-xl bg-white border border-black/20"
-                       placeholder="Choose your name (one-time)" />
-                <button id="name-save" class="px-3 py-2 rounded-xl bg-xega-200 border border-black/20">Save</button>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-xs opacity-70 mb-1">Solana Wallet</div>
-              <div class="flex gap-2">
-                <input id="wallet-input" type="text" class="flex-1 px-3 py-2 rounded-xl bg-white border border-black/20"
-                       placeholder="Paste your wallet (e.g., 9zqJ...)" />
-                <button id="wallet-save" class="px-3 py-2 rounded-xl bg-xega-200 border border-black/20">Save</button>
-              </div>
-              <div class="text-xs opacity-70 mt-1">Current: <span id="wallet-current" class="font-medium">—</span></div>
-            </div>
-          </div>
-
-          <!-- Leaderboard -->
-          <div class="card rounded-2xl p-6">
-            <div class="text-lg font-semibold mb-4">Leaderboard</div>
-            <div id="leaders" class="space-y-2"></div>
-          </div>
-        </aside>
-      </div>
+      <!-- REFERRALS -->
+      <section id="tab-referrals" class="panel rounded-2xl p-6 hidden">
+        <div class="text-xl font-semibold mb-4">Referrals</div>
+        <div class="text-ghost text-sm mb-3">People you referred</div>
+        <div id="ref-list" class="space-y-2"></div>
+      </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="w-full">
-      <div class="max-w-6xl mx-auto px-4 py-6 text-xs">
-        <div class="flex items-center justify-between">
-          <div>Mint: <code>9zqJm2WZhioAAshWj8HzoiABdCCBJbFCjejgDSZuoM2k</code></div>
-          <div class="">© XEGA</div>
+    <!-- ALT TAB BAR -->
+    <nav class="fixed bottom-0 inset-x-0">
+      <div class="max-w-6xl mx-auto px-4 pb-3">
+        <div class="chip rounded-2xl p-2 flex items-center justify-between gap-2 backdrop-blur">
+          <button class="tab-btn rounded-xl px-4 py-2 w-full active" data-tab="shop">Shop</button>
+          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="profile">Profile</button>
+          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="leaderboard">Leaderboard</button>
+          <button class="tab-btn rounded-xl px-4 py-2 w-full" data-tab="referrals">Referrals</button>
         </div>
       </div>
-    </footer>
+    </nav>
   </div>
 
-  <!-- App Logic (client-side mock; Telegram/Backend bağları sonradan) -->
+  <!-- App Logic -->
   <script>
-    // === Constants (bot ile uyumlu) ===
+    // === Constants ===
     const ENERGY_MAX = 100;
     const REGEN_BASE_SEC = 36;
     const REGEN_FLOOR_SEC = 10;
@@ -198,7 +194,7 @@
     const CRIT_CAP = 0.40;
     const MULTI_PER_LEVEL = 0.5;
 
-    const SHOP = {
+    const SHOP_DEF = {
       tap_power:  { key: 'tap_power',  name:'Tap Power (+1)', base:500,  m0:1.75, inc:0.02,  max:10 },
       multiplier: { key: 'multiplier', name:'Multiplier',     base:800,  m0:1.60, inc:0.015, max:30 },
       crit:       { key: 'crit',       name:'Critical',       base:600,  m0:1.55, inc:0.015, max:30 },
@@ -225,8 +221,8 @@
       return { gain, isCrit };
     }
 
-    // === State ===
-    const state = {
+    // === State (mock) ===
+    const st = {
       display_name: '',
       name_locked: false,
       wallet: '',
@@ -239,215 +235,13 @@
       autotap_owned: false,
       autotap_enabled: false,
       autotap_used_min: 0,
+      // Mock referrals (backendten doldurulacak)
+      referrals: [
+        // { name:'PlayerA', since:'2025-10-01' },
+        // { name:'PlayerB', since:'2025-10-03' },
+      ]
     };
 
-    // === DOM ===
+    // === DOM refs ===
     const el = {
       xega: document.getElementById('stat-xega'),
-      energy: document.getElementById('stat-energy'),
-      regen: document.getElementById('stat-regen'),
-      energyBar: document.getElementById('energy-bar'),
-      mult: document.getElementById('stat-mult'),
-      multLv: document.getElementById('lv-mult'),
-      crit: document.getElementById('stat-crit'),
-      critLv: document.getElementById('lv-crit'),
-      hello: document.getElementById('hello-name'),
-      tapBtn: document.getElementById('tapBtn'),
-      shop: document.getElementById('shop'),
-      leaders: document.getElementById('leaders'),
-      nameInput: document.getElementById('name-input'),
-      nameSave: document.getElementById('name-save'),
-      nameLock: document.getElementById('name-lock'),
-      walletInput: document.getElementById('wallet-input'),
-      walletSave: document.getElementById('wallet-save'),
-      walletCurrent: document.getElementById('wallet-current'),
-      autoToggle: document.getElementById('autotap-toggle'),
-      autoState: document.getElementById('autotap-state'),
-      autoRemain: document.getElementById('autotap-remaining')
-    };
-
-    function render(){
-      el.xega.textContent = state.xega;
-      el.energy.textContent = state.energy;
-      el.energyBar.style.width = Math.round((state.energy/ENERGY_MAX)*100)+'%';
-      const regenSec = regenSecFromLevel(state.regen_level);
-      el.regen.textContent = regenSec;
-
-      const multX = (1 + MULTI_PER_LEVEL * state.multiplier_level).toFixed(1);
-      el.mult.textContent = multX;
-      el.multLv.textContent = state.multiplier_level;
-
-      const critPct = Math.min(CRIT_CAP, CRIT_BASE + CRIT_PER_LEVEL * state.crit_level) * 100;
-      el.crit.textContent = Math.round(critPct);
-      el.critLv.textContent = state.crit_level;
-
-      el.hello.textContent = state.display_name || 'Player';
-
-      el.nameInput.value = state.name_locked ? (state.display_name || '') : el.nameInput.value;
-      el.nameInput.disabled = state.name_locked;
-      el.nameLock.classList.toggle('hidden', !state.name_locked);
-
-      el.walletCurrent.textContent = state.wallet || '—';
-      el.autoToggle.checked = state.autotap_enabled && state.autotap_owned;
-      el.autoToggle.disabled = !state.autotap_owned || (300 - state.autotap_used_min) <= 0;
-      el.autoState.textContent = state.autotap_owned ? (state.autotap_enabled ? 'ON' : 'OFF') : '—';
-      const remain = Math.max(0, 300 - state.autotap_used_min);
-      el.autoRemain.textContent = remain + ' min left';
-      el.autoRemain.classList.toggle('hidden', !state.autotap_owned || !state.autotap_enabled);
-    }
-
-    // Shop list
-    function renderShop(){
-      const items = [
-        ['tap_power', state.tap_power_level],
-        ['multiplier', state.multiplier_level],
-        ['crit', state.crit_level],
-        ['regen', state.regen_level],
-        ['autotap', state.autotap_owned ? 1 : 0],
-      ];
-      el.shop.innerHTML = '';
-      items.forEach(([key, level]) => {
-        const def = SHOP[key];
-        const next = key === 'autotap' ? (state.autotap_owned ? 'MAX' : 1) : level + 1;
-        const cost = key === 'autotap'
-          ? (state.autotap_owned ? 'MAX' : def.base)
-          : (next <= def.max ? nextCost(def, next) : 'MAX');
-        const isMax = cost === 'MAX';
-
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between p-3 rounded-xl bg-white/70 border border-black/10';
-        row.innerHTML = `
-          <div>
-            <div class="font-medium">${def.name}</div>
-            <div class="text-xs opacity-70">Next Lv: ${isMax ? 'MAX' : next} • Cost: ${cost}</div>
-          </div>
-          <button class="px-3 py-2 rounded-xl bg-xega-200 border border-black/20 ${isMax ? 'opacity-60 cursor-not-allowed' : ''}">Buy</button>
-        `;
-        const btn = row.querySelector('button');
-        btn.addEventListener('click', () => {
-          buy(key);
-        });
-        el.shop.appendChild(row);
-      });
-    }
-
-    function buy(key){
-      if (key === 'autotap'){
-        if (state.autotap_owned) return;
-        const cost = SHOP.autotap.base;
-        if (state.xega < cost) return;
-        state.xega -= cost;
-        state.autotap_owned = true;
-        render(); renderShop();
-        return;
-      }
-      const def = SHOP[key];
-      const curr = key + '_level';
-      const next = state[curr] + 1;
-      if (next > def.max) return;
-      const cost = nextCost(def, next);
-      if (state.xega < cost) return;
-      state.xega -= cost;
-      state[curr] = next;
-      render(); renderShop();
-    }
-
-    // Tap
-    el.tapBtn.addEventListener('click', () => {
-      if (state.energy <= 0) return;
-      const { gain } = computeTapGain(state);
-      state.xega += gain;
-      state.energy = Math.max(0, state.energy - 1);
-
-      // Telegram haptic (uyumlu ortamda)
-      try { window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); } catch {}
-
-      render();
-    });
-
-    // Regen timer
-    setInterval(() => {
-      const regenSec = regenSecFromLevel(state.regen_level);
-      if (state.energy < ENERGY_MAX) {
-        state.energy += 1;
-        render();
-      }
-    }, regenSecFromLevel(state.regen_level) * 1000);
-
-    // AutoTap accrual (per minute)
-    setInterval(() => {
-      if (!state.autotap_owned || !state.autotap_enabled) return;
-      const remain = Math.max(0, 300 - state.autotap_used_min);
-      if (remain <= 0) { state.autotap_enabled = false; render(); return; }
-      const perMin = Math.max(1, Math.round((BASE_TAP + state.tap_power_level) * (1 + MULTI_PER_LEVEL * state.multiplier_level) * 0.6));
-      state.xega += perMin;
-      state.autotap_used_min = Math.min(300, state.autotap_used_min + 1);
-      render();
-    }, 60_000);
-
-    // Name one-time
-    el.nameSave.addEventListener('click', () => {
-      if (state.name_locked) return;
-      const s = (el.nameInput.value || '').trim();
-      if (s.length < 3 || s.length > 20) return;
-      state.display_name = s;
-      state.name_locked = true;
-      render();
-    });
-
-    // Wallet save
-    el.walletSave.addEventListener('click', () => {
-      const s = (el.walletInput.value || '').trim();
-      state.wallet = s;
-      render();
-    });
-
-    // Toggle AutoTap
-    el.autoToggle.addEventListener('change', (e) => {
-      if (!state.autotap_owned) { e.target.checked = false; return; }
-      const remain = Math.max(0, 300 - state.autotap_used_min);
-      if (remain <= 0) { e.target.checked = false; return; }
-      state.autotap_enabled = e.target.checked;
-      render();
-    });
-
-    // Mock leaderboard
-    const mockLeaders = [
-      { name:'Nova', score: 52000 },
-      { name:'Orion', score: 48000 },
-      { name:'Lyra', score: 43000 },
-      { name:'Echo', score: 41000 },
-    ];
-    function renderLeaders(){
-      const mine = { name: state.display_name || 'Player', score: state.xega };
-      const list = [mine, ...mockLeaders].sort((a,b)=>b.score-a.score).slice(0,10);
-      el.leaders.innerHTML = '';
-      list.forEach((r, i) => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between text-sm py-2 px-2 rounded-lg bg-white/70 border border-black/10';
-        row.innerHTML = `
-          <div class="flex items-center gap-2">
-            <div class="w-6 opacity-70">${i+1}.</div>
-            <div class="font-medium">${r.name}</div>
-          </div>
-          <div class="font-semibold">${r.score}</div>
-        `;
-        el.leaders.appendChild(row);
-      });
-    }
-
-    // Initial paint
-    render(); renderShop(); renderLeaders();
-
-    // Telegram WebApp init (tema vs.)
-    try {
-      const tg = window.Telegram?.WebApp;
-      tg?.expand();
-      tg?.ready();
-      // Koyu değil, açık arkaplan: siyah yazı için uygun
-      tg?.setBackgroundColor('#ffefef');
-      tg?.setHeaderColor('#e71919');
-    } catch {}
-  </script>
-</body>
-</html>
